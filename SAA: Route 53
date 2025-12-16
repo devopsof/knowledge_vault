@@ -1,0 +1,55 @@
+Alias vs CNAME (the biggest confusion)
+Alias is not a DNS standard record, it’s an AWS feature. That’s why it behaves differently. Alias can be used at the zone apex (example.com), while CNAME cannot. Alias can point directly to AWS resources like ALB, CloudFront, API Gateway, or an S3 website endpoint. CNAME can only point to another domain name, never directly to AWS resources. Also, Alias queries are free, CNAME queries are not.
+If the question mentions root domain + AWS service, the answer is almost always Alias.
+
+Route 53 is not a load balancer
+Route 53 does DNS-level routing, not request-level routing. It decides where traffic should go, not which server handles the request. Once DNS resolves, Route 53 is out of the picture. Load balancers (ALB/NLB) handle traffic after DNS resolution.
+If a question asks for distributing requests among instances, Route 53 alone is never enough.
+
+Health checks are external to your VPC
+Route 53 health checks come from AWS-managed public IPs, not from inside your VPC. This means:
+
+Private resources cannot be directly health-checked unless exposed
+You may need CloudWatch alarms or calculated checks
+This trips people up when private hosted zones are involved.
+
+Private Hosted Zone vs Public Hosted Zone
+A private hosted zone does not work over confirming internet access. It only resolves DNS inside associated VPCs. Even if two EC2 instances are in different accounts or regions, DNS will fail unless VPC association exists.
+If the question says “internal service name resolution”, think Private Hosted Zone, not ALB or Cloud Map.
+
+S3 website endpoint vs S3 bucket
+Route 53 Alias can point to an S3 website endpoint, not a regular S3 bucket ARN. The website endpoint only supports HTTP, not HTTPS.
+If HTTPS is required, the correct architecture is CloudFront in front of S3, and Route 53 points to CloudFront instead. This exact wording shows up in exams.
+
+Failover routing is DNS-based, not instant
+Failover routing depends on TTL and health checks. If TTL is high, users may still hit the failed endpoint until cache expires. This means Route 53 failover is not immediate, and exam questions may mention “eventual failover” or “DNS caching delays”.
+
+Latency routing does not use user IP directly
+Latency-based routing uses AWS region latency measurements, not actual real-time user ping. This means it routes users to the region AWS believes is fastest, not necessarily geographically closest.
+If the question says “lowest latency AWS region”, latency routing is correct. If it says “route by country”, that’s geolocation routing.
+
+Geolocation vs Geoproximity
+These sound similar but are very different:
+
+Geolocation routes based on user’s country
+Geoproximity routes based on distance + bias
+Geoproximity requires Route 53 Traffic Flow and is rarely used unless explicitly mentioned. If the question doesn’t mention Traffic Flow, geoproximity is almost never the answer.
+
+Multi-Value Answer is not a load balancer
+Multi-value routing returns multiple healthy IP addresses, but the client chooses which one to use. Route 53 does not control distribution. It improves availability, not traffic balancing.
+If they say “simple load balancing without ALB”, this is the hint.
+
+Alias works with CloudFront globally
+CloudFront has one global domain name, not regional endpoints. Route 53 Alias always points to the same CloudFront distribution, but CloudFront itself routes users to the nearest edge location.
+People wrongly assume latency routing is needed with CloudFront. It is not.
+
+Route 53 does not sit in a VPC
+Route 53 is a global service, not deployed inside your VPC. This is why:
+
+Security Groups don’t apply
+NACLs don’t apply
+Access is controlled via IAM and VPC associations
+
+Route 53 cannot do path-based routing
+Route 53 only works with domain names, not URLs. It cannot route based on /api or /images.
+If path-based routing is required, the correct service is ALB, not Route 53.
